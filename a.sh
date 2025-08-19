@@ -1,9 +1,13 @@
 #!/bin/bash
 set -e
 
-# === 0. Set live environment keyboard layout to Colemak ===
+# === 0. Set keyboard layout and mirrors ===
 loadkeys colemak
-echo "Keyboard layout set to Colemak in live environment."
+echo "Keyboard layout set to Colemak."
+
+echo "Configuring pacman mirrors for Germany and Switzerland..."
+curl -s 'https://archlinux.org/mirrorlist/?country=DE&country=CH&protocol=https&use_mirror_status=on' \
+    | sed 's/^#Server/Server/' > /etc/pacman.d/mirrorlist
 
 # === 1. Prompt for variables ===
 read -rp "Enter target disk (e.g., /dev/sda): " DISK
@@ -66,25 +70,24 @@ genfstab -U /mnt >> /mnt/etc/fstab
 arch-chroot /mnt /bin/bash <<EOF_CHROOT
 set -e
 
-# === Set hostname and keyboard ===
+# === Hostname & keyboard ===
 echo "$HOSTNAME" > /etc/hostname
 localectl set-keymap colemak
 
-# === Set locale ===
+# === Locale ===
 echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
 locale-gen
 echo "LANG=en_US.UTF-8" > /etc/locale.conf
 
-# === Set root password ===
+# === Root password ===
 echo "root:$ROOT_PASSWORD" | chpasswd
 
-# === Configure mkinitcpio for encrypted Btrfs ===
+# === mkinitcpio for encrypted Btrfs ===
 sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect modconf block keyboard keymap encrypt filesystems fsck)/' /etc/mkinitcpio.conf
 mkinitcpio -P
 
-# === Install systemd-boot ===
+# === systemd-boot ===
 bootctl --path=/boot install
-
 UUID=\$(blkid -s UUID -o value $ROOT_PART)
 cat <<EOL > /boot/loader/loader.conf
 default arch
